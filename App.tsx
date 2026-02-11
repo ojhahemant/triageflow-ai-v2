@@ -4,11 +4,9 @@ import { Persona, Patient } from './types';
 import { MOCK_PATIENTS } from './constants';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
-import ClinicianDashboard from './components/ClinicianDashboard';
-import WaitingListDashboard from './components/WaitingListDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import ManagementDashboard from './components/ManagementDashboard';
 import PersonaSelector from './components/PersonaSelector';
+import { ConfigurableDashboard } from './components/ConfigurableDashboard';
+import { getPersonaConfig } from './config/personas';
 
 const App: React.FC = () => {
   const [currentPersona, setCurrentPersona] = useState<Persona | null>(null);
@@ -32,18 +30,13 @@ const App: React.FC = () => {
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId) || patients[0];
 
-  // Filtering patients based on persona-specific relevant statuses
+  // Get persona configuration for sidebar filtering
   const getRelevantPatients = () => {
-    switch (currentPersona) {
-      case Persona.ADMIN:
-        return patients.filter(p => p.status === 'Intake Review');
-      case Persona.CLINICIAN:
-        return patients.filter(p => p.status === 'Triage Pending');
-      case Persona.WAITING_LIST:
-        return patients.filter(p => ['Form Pending', 'Awaiting Scheduling', 'Scheduled'].includes(p.status));
-      default:
-        return patients;
-    }
+    if (!currentPersona) return patients;
+    const config = getPersonaConfig(currentPersona);
+    return config.sidebar?.patientFilter
+      ? config.sidebar.patientFilter(patients)
+      : patients;
   };
 
   if (!currentPersona) {
@@ -76,27 +69,13 @@ const App: React.FC = () => {
         <Navbar currentPersona={currentPersona} />
         
         <main className="flex-1 overflow-y-auto p-6">
-          {currentPersona === Persona.CLINICIAN && (
-            <ClinicianDashboard 
-              patient={selectedPatient} 
-              onUpdatePatient={handleUpdatePatient}
-            />
-          )}
-          {currentPersona === Persona.WAITING_LIST && (
-            <WaitingListDashboard 
-              patients={patients.filter(p => ['Awaiting Scheduling', 'Scheduled', 'Form Pending', 'Confirmed'].includes(p.status))} 
-              onUpdatePatient={handleUpdatePatient}
-            />
-          )}
-          {currentPersona === Persona.ADMIN && (
-            <AdminDashboard 
-              patients={patients.filter(p => p.status === 'Intake Review')} 
-              onUpdatePatient={handleUpdatePatient}
-            />
-          )}
-          {currentPersona === Persona.MANAGEMENT && (
-            <ManagementDashboard patients={patients} />
-          )}
+          <ConfigurableDashboard
+            persona={currentPersona}
+            patients={patients}
+            selectedPatient={selectedPatient}
+            onUpdatePatient={handleUpdatePatient}
+            onSelectPatient={setSelectedPatientId}
+          />
         </main>
       </div>
     </div>
